@@ -156,7 +156,6 @@ if __name__ == "__main__":
     config = config._replace(state_shape=state_shape)
     environment = EnvWrapper(environment, debug=True, args=config)
 
-    # Set random seed
     torch.manual_seed(config.seed)
     seeding.seed(config.seed, random, np, gym, environment)
     
