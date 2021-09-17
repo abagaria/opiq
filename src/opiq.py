@@ -5,7 +5,6 @@ import time
 import torch
 import utils
 import random
-import seeding
 import logging
 import numpy as np
 
@@ -52,7 +51,8 @@ class OPIQAgent:
                                   target_agent=self.target_agent,
                                   args=config,
                                   count_model=self.count_model,
-                                  buffer=self.replay_buffer)
+                                  buffer=self.replay_buffer,
+                                  device=device)
         
         self.T = 0 
     
@@ -157,12 +157,14 @@ if __name__ == "__main__":
     environment = EnvWrapper(environment, debug=True, args=config)
 
     torch.manual_seed(config.seed)
-    seeding.seed(config.seed, random, np, gym, environment)
-    
+    random.seed(config.seed)
+    np.random.seed(config.seed)
+    environment.seed(config.seed)
+
     opiq_agent = OPIQAgent(obs_dtype=getattr(environment.wrapped_env, "obs_dtype", np.float32),
                            obs_scaling=getattr(environment.wrapped_env, "obs_scaling", 1),
                            config=config,
-                           device=torch.device("cuda"))
+                           device=torch.device("cuda:1"))
 
     t0 = time.time()
     current_step_number = 0

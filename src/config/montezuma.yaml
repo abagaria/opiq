@@ -1,7 +1,7 @@
 name: "count_explore"
 
 # Random seed
-seed: 0
+seed: 1
 
 # RL Stuff
 gamma: 0.99

@@ -3,16 +3,15 @@ import logging
 from utils.logging import get_stats
 import numpy as np
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cpu_device = torch.device("cpu")
-
 
 class DQNTrainer:
 
-    def __init__(self, agent, target_agent, args, count_model=None, buffer=None):
+    def __init__(self, agent, target_agent, args, count_model=None, buffer=None, device=cpu_device):
         self.args = args
         self.agent = agent
         self.target_agent = target_agent
+        self.device = device
 
         # self.parameters = self.agent.parameters()
         self.agent_parameters = list(self.agent.parameters())
@@ -50,12 +49,12 @@ class DQNTrainer:
             rewards = rewards.clamp(min=-1, max=+1)
 
         # Move them over
-        states = states.to(device)
-        actions = actions.to(device)
-        rewards = rewards.to(device)
-        intrinsic_rewards = intrinsic_rewards.to(device)
-        next_states = next_states.to(device)
-        terminations = terminations.to(device)
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        intrinsic_rewards = intrinsic_rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        terminations = terminations.to(self.device)
 
         # Change dtypes
         states = states.type(torch.float32)
@@ -157,15 +156,15 @@ class DQNTrainer:
         # n_rewards = n_rewards.clamp(min=-1, max=+1)
 
         # Move them over
-        states = states.to(device)
-        actions = actions.to(device)
-        n_rewards = n_rewards.to(device)
-        n_intrinsic_rewards = n_intrinsic_rewards.to(device)
-        n_next_states = n_next_states.to(device)
-        terminations = terminations.to(device)
-        steps = steps.to(device)
-        n_last_states = n_last_states.to(device)
-        next_actions = next_actions.to(device)
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        n_rewards = n_rewards.to(self.device)
+        n_intrinsic_rewards = n_intrinsic_rewards.to(self.device)
+        n_next_states = n_next_states.to(self.device)
+        terminations = terminations.to(self.device)
+        steps = steps.to(self.device)
+        n_last_states = n_last_states.to(self.device)
+        next_actions = next_actions.to(self.device)
 
         # Change dtypes
         states = states.type(torch.float32)
@@ -181,7 +180,7 @@ class DQNTrainer:
             bsp_w = torch.from_numpy(extra_info["bsp_w"]).to(device).type(torch.long)
 
         if self.args.mmc:
-            mmc_v = torch.from_numpy(extra_info["mmc"]).to(device).type(torch.float)
+            mmc_v = torch.from_numpy(extra_info["mmc"]).to(self.device).type(torch.float)
 
         states.requires_grad = True
         # assert not self.args.double_q
