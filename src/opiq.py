@@ -4,8 +4,10 @@ import yaml
 import time
 import torch
 import utils
+import pickle
 import random
 import logging
+import argparse
 import numpy as np
 
 from agent.atari_dqn import DQN
@@ -19,12 +21,13 @@ from utils.logging import get_stats, configure_stats_logging
 
 
 class OPIQAgent:
-    def __init__(self, obs_dtype, obs_scaling, config, device):
+    def __init__(self, obs_dtype, obs_scaling, config, seed, device):
+        self.seed = seed
         self.config = config
         self.device = device 
 
         configure_stats_logging(
-            str(config.seed) + "_" + config.name,
+            str(seed) + "_" + config.name,
             log_interval=config.log_interval,
             sacred_info={},
             use_tb=config.tb,
@@ -146,6 +149,11 @@ class OPIQAgent:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--device", type=str)
+    args = parser.parse_args()
+
     config = yaml.load(open("src/config/montezuma.yaml", "r"))
     config = convert(config)
 
@@ -156,15 +164,16 @@ if __name__ == "__main__":
     config = config._replace(state_shape=state_shape)
     environment = EnvWrapper(environment, debug=True, args=config)
 
-    torch.manual_seed(config.seed)
-    random.seed(config.seed)
-    np.random.seed(config.seed)
-    environment.seed(config.seed)
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    environment.seed(args.seed)
 
     opiq_agent = OPIQAgent(obs_dtype=getattr(environment.wrapped_env, "obs_dtype", np.float32),
                            obs_scaling=getattr(environment.wrapped_env, "obs_scaling", 1),
                            config=config,
-                           device=torch.device("cuda:1"))
+                           seed=args.seed,
+                           device=torch.device(args.device))
 
     t0 = time.time()
     current_step_number = 0
@@ -174,6 +183,15 @@ if __name__ == "__main__":
     while current_step_number < num_training_steps:
         s0 = environment.reset()
         episodic_reward, episodic_duration, max_episodic_reward = opiq_agent.rollout(environment, s0, max_episodic_reward)
+
+        with open("opiq_log_{}.pkl".format(args.seed), "wb+") as f:
+            episode_metrics = {
+                            "step": current_step_number, 
+                            "reward": episodic_reward,
+                            "max_reward": max_episodic_reward
+            }
+            pickle.dump(episode_metrics, f)
+
         current_step_number += episodic_duration
 
     print("Finished after {} hrs".format((time.time() - t0) / 3600.))
