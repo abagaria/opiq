@@ -180,18 +180,26 @@ if __name__ == "__main__":
     max_episodic_reward = 0
     num_training_steps = 13000000
 
+    _log_steps = []
+    _log_rewards = []
+    _log_max_rewards = []
+
     while current_step_number < num_training_steps:
         s0 = environment.reset()
         episodic_reward, episodic_duration, max_episodic_reward = opiq_agent.rollout(environment, s0, max_episodic_reward)
 
+        current_step_number += episodic_duration
+        
+        _log_steps.append(current_step_number)
+        _log_rewards.append(episodic_reward)
+        _log_max_rewards.append(max_episodic_reward)
+
         with open("opiq_log_{}.pkl".format(args.seed), "wb+") as f:
             episode_metrics = {
-                            "step": current_step_number, 
-                            "reward": episodic_reward,
-                            "max_reward": max_episodic_reward
+                            "step": _log_steps, 
+                            "reward": _log_rewards,
+                            "max_reward": _log_max_rewards
             }
             pickle.dump(episode_metrics, f)
-
-        current_step_number += episodic_duration
 
     print("Finished after {} hrs".format((time.time() - t0) / 3600.))
