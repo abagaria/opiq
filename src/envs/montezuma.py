@@ -55,6 +55,26 @@ class Montezuma(gym.Env):
     def log_player_pos(self):
         return self.current_room
 
+    @staticmethod
+    def _getIndex(address):
+        assert type(address) == str and len(address) == 2
+        row, col = tuple(address)
+        row = int(row, 16) - 8
+        col = int(col, 16)
+        return row * 16 + col
+
+    @staticmethod
+    def getByte(ram, address):
+        # Return the byte at the specified emulator RAM location
+        idx = Montezuma._getIndex(address)
+        return ram[idx]
+
+    def get_player_xy(self):
+        ram = self.mont_env.ale.getRAM()
+        x = int(self.getByte(ram, 'aa'))
+        y = int(self.getByte(ram, 'ab'))
+        return x, y
+
     def trained_on_states(self, player_visits, args):
         pass
 

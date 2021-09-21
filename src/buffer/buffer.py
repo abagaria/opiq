@@ -68,6 +68,7 @@ class ReplayBuffer(object):
         self.intrinsic_reward = None
         self.done = None
         self.dont_sample = None
+        self.pos = None
 
         self.obs_dtype = obs_dtype
         self.obs_scaling = obs_scaling
@@ -91,6 +92,7 @@ class ReplayBuffer(object):
         act_batch = self.action[idxes]
         rew_batch = self.reward[idxes]
         int_rew_batch = self.intrinsic_reward[idxes]
+        pos_batch = self.pos[idxes]
 
         if nstep == 1:
             next_obs_batch = np.concatenate(
@@ -160,6 +162,7 @@ class ReplayBuffer(object):
             if self.mmc:
                 extra_info["mmc"] = mmc_vs
 
+        extra_info["pos"] = pos_batch
         return obs_batch, act_batch, rew_batch, int_rew_batch, next_obs_batch, done_mask, extra_info
 
 
@@ -242,7 +245,7 @@ class ReplayBuffer(object):
                 img_h, img_w = self.obs.shape[2], self.obs.shape[3]
                 return self.obs[start_idx:end_idx].reshape(-1, img_h, img_w).astype(np.float32) * self.obs_scaling
 
-    def store_frame(self, frame):
+    def store_frame(self, frame, *, pos):
         """Store a single frame in the buffer at the next available index, overwriting
         old frames if necessary.
         Parameters
@@ -270,12 +273,13 @@ class ReplayBuffer(object):
             self.pseudo_count = np.empty([self.size], dtype=np.int32)
             self.done = np.empty([self.size], dtype=np.bool)
             self.dont_sample = np.empty([self.size], dtype=np.bool)
+            self.pos = np.empty([self.size, 2], dtype=np.int32)
             if self.bsp:
                 self.bsp_w = np.empty([self.size, self.args.bsp_k], dtype=np.int32)
             if self.mmc:
                 self.mmc_v = np.empty([self.size], dtype=np.float32)
         self.obs[self.next_idx] = frame
-
+        self.pos[self.next_idx] = pos
         ret = self.next_idx
         self.next_idx = (self.next_idx + 1) % self.size
         self.num_in_buffer = min(self.size, self.num_in_buffer + 1)

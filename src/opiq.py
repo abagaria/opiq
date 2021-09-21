@@ -9,7 +9,9 @@ import random
 import logging
 import argparse
 import numpy as np
+import utils.plotting
 
+from collections import deque
 from agent.atari_dqn import DQN
 from buffer.buffer import ReplayBuffer
 from envs.env_wrapper import EnvWrapper
@@ -17,7 +19,7 @@ from trainer.dqn_train import DQNTrainer
 from count.atari_count import AtariCount
 from action.optimistic_action import OptimisticAction
 from utils.dict2namedtuple import convert
-from utils.logging import get_stats, configure_stats_logging
+from utils.logging import get_stats, configure_stats_logging, create_log_dir
 
 
 class OPIQAgent:
@@ -71,7 +73,7 @@ class OPIQAgent:
         while not terminated: 
 
             # Store observation (a single frame) into replay buffer
-            buffer_idx = self.replay_buffer.store_frame(state)
+            buffer_idx = self.replay_buffer.store_frame(state, pos=env.wrapped_env.get_player_xy())
             stacked_states = self.replay_buffer.encode_recent_observation()
             
             # Action selection
@@ -91,7 +93,7 @@ class OPIQAgent:
             # Logging
             self.T += 1
             episode_length += 1
-            episode_reward += reward     
+            episode_reward += reward
 
             # Manage the done flag
             terminal_to_store = terminated
@@ -119,7 +121,7 @@ class OPIQAgent:
 
             if terminated:
                 if "Steps_Termination" in info and info["Steps_Termination"]:
-                    buffer_idx = self.replay_buffer.store_frame(state)
+                    buffer_idx = self.replay_buffer.store_frame(state, env.wrapped_env.get_player_xy())
                     self.replay_buffer.store_effect(buffer_idx, 0, 0, 0, True, 0, dont_sample=True)
 
                 max_reward_so_far = max(max_reward_so_far, episode_reward)
@@ -147,12 +149,51 @@ class OPIQAgent:
 
         return episode_reward, episode_length, max_reward_so_far
 
+    def intrinsic_reward_function(self, states):
+        """ Given a batch of states, return the corresponding intrinsic rewards. """
+        
+        def pre_process(x):
+            """ Convert to float and divide each pixel by 255. """
+            return x.astype(self.replay_buffer.obs_dtype) * self.replay_buffer.obs_scaling
+
+        def counts2bonus(c):
+            """ Action selection count based exploration bonus. """
+            return self.config.optim_action_tau / (c + 1.0) ** self.config.optim_m
+
+        assert isinstance(states, np.ndarray)
+        states = pre_process(states)
+        states_tensor = torch.as_tensor(states).float().to(self.device)
+        action_counts = self.count_model.get_all_action_counts(states_tensor).transpose(1, 0)
+        state_counts = action_counts.max(axis=1)
+        assert state_counts.shape == (states.shape[0],), state_counts.shape
+        return counts2bonus(state_counts)
+
+    def value_function(self, states):
+        def pre_process(x):
+            x = torch.as_tensor(x).float() * self.replay_buffer.obs_scaling
+            return x.to(self.device)
+
+        with torch.no_grad():
+            q_values = self.agent(pre_process(states))
+
+        values = q_values.max(dim=1).values
+        assert values.shape == (states.shape[0],), values.shape
+
+        return values.cpu().numpy()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int)
     parser.add_argument("--device", type=str)
+    parser.add_argument("--experiment_name", type=str)
     args = parser.parse_args()
+    
+    create_log_dir("plots")
+    create_log_dir("logs")
+    create_log_dir("plots/{}_{}".format(args.experiment_name, args.seed))
+    create_log_dir("logs/{}_{}".format(args.experiment_name, args.seed))
+    _log_file = "logs/{}_{}/opiq_log.pkl".format(args.experiment_name, args.seed)
 
     config = yaml.load(open("src/config/montezuma.yaml", "r"))
     config = convert(config)
@@ -178,6 +219,7 @@ if __name__ == "__main__":
     t0 = time.time()
     current_step_number = 0
     max_episodic_reward = 0
+    current_episode_number = 0
     num_training_steps = 13000000
 
     _log_steps = []
@@ -188,18 +230,22 @@ if __name__ == "__main__":
         s0 = environment.reset()
         episodic_reward, episodic_duration, max_episodic_reward = opiq_agent.rollout(environment, s0, max_episodic_reward)
 
+        current_episode_number += 1
         current_step_number += episodic_duration
-        
+
         _log_steps.append(current_step_number)
         _log_rewards.append(episodic_reward)
         _log_max_rewards.append(max_episodic_reward)
 
-        with open("opiq_log_{}.pkl".format(args.seed), "wb+") as f:
+        with open(_log_file, "wb+") as f:
             episode_metrics = {
                             "step": _log_steps, 
                             "reward": _log_rewards,
                             "max_reward": _log_max_rewards
             }
             pickle.dump(episode_metrics, f)
+
+        if current_episode_number > 0 and current_episode_number % 100 == 0:
+            utils.plotting.visualize_value_function(opiq_agent, current_episode_number, args.experiment_name, args.seed)
 
     print("Finished after {} hrs".format((time.time() - t0) / 3600.))
