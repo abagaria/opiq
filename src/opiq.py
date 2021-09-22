@@ -191,9 +191,11 @@ if __name__ == "__main__":
     
     create_log_dir("plots")
     create_log_dir("logs")
-    create_log_dir("plots/{}_{}".format(args.experiment_name, args.seed))
-    create_log_dir("logs/{}_{}".format(args.experiment_name, args.seed))
-    _log_file = "logs/{}_{}/opiq_log.pkl".format(args.experiment_name, args.seed)
+    create_log_dir("plots/{}".format(args.experiment_name))
+    create_log_dir("plots/{}/{}".format(args.experiment_name, args.seed))
+    create_log_dir("logs/{}".format(args.experiment_name))
+    create_log_dir("logs/{}/{}".format(args.experiment_name, args.seed))
+    _log_file = "logs/{}/{}/opiq_log.pkl".format(args.experiment_name, args.seed)
 
     config = yaml.load(open("src/config/montezuma.yaml", "r"))
     config = convert(config)

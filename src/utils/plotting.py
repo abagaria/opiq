@@ -41,7 +41,7 @@ def visualize_value_function(agent, episode, experiment_name, seed):
 
     values = chunked_inference(agent.value_function, obs)
 
-    fname = "{}_{}/value_function_episode_{}.png".format(experiment_name, seed, episode)
+    fname = "{}/{}/value_function_episode_{}.png".format(experiment_name, seed, episode)
     plot_against_position(pos, values, episode, fname)
 
     print("Took {}s to plot intrinsic value function".format(time.time() - t0))
@@ -56,7 +56,7 @@ def visualize_intrinsic_reward_function(agent, episode, experiment_name, seed):
     positions = agent.replay_buffer.pos[:agent.replay_buffer.next_idx]
     intrinsic_rewards = chunked_inference(agent.intrinsic_reward_function, frames, to_tensor=False)
 
-    fname = "{}_{}/intrinsic_reward_episode_{}.png".format(episode, experiment_name, seed)
+    fname = "{}/{}/intrinsic_reward_episode_{}.png".format(experiment_name, seed, episode)
     plot_against_position(positions, intrinsic_rewards, episode, fname)
 
     print("Took {}s to plot intrinsic reward function".format(time.time() - t0))
