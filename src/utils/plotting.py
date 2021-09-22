@@ -32,6 +32,8 @@ def chunked_inference(func, data, to_tensor=True, device=torch.device("cuda"), c
 def visualize_value_function(agent, episode, experiment_name, seed):
     t0 = time.time()
 
+    # Since we are sampling from the buffer, obs is already normalized
+    # (pixel values lie between 0 and 1 floating point) and frame stacked
     num_samples = min(agent.replay_buffer.num_in_buffer, 5000)
     batch = agent.replay_buffer.sample(num_samples)
     obs = batch[0]
@@ -48,6 +50,8 @@ def visualize_value_function(agent, episode, experiment_name, seed):
 def visualize_intrinsic_reward_function(agent, episode, experiment_name, seed):
     t0 = time.time()
 
+    # Since we are grabbing the raw data stored in the replay buffer, 
+    # it is unnormalized (pixel values lie between 0-255) and unstacked
     frames = agent.replay_buffer.obs[:agent.replay_buffer.next_idx][:, -1]
     positions = agent.replay_buffer.pos[:agent.replay_buffer.next_idx]
     intrinsic_rewards = chunked_inference(agent.intrinsic_reward_function, frames, to_tensor=False)
@@ -61,11 +65,11 @@ def visualize_intrinsic_reward_function(agent, episode, experiment_name, seed):
 def plot_against_position(positions, values, episode, fname):
     x, y, r = [], [], []
 
-    for pos, r_int in zip(positions, values):
+    for pos, value in zip(positions, values):
         if pos[0] is not None and pos[1] is not None:
             x.append(pos[0])
             y.append(pos[1])
-            r.append(r_int)
+            r.append(value)
 
     plt.scatter(x, y, c=r)
     plt.title("Episode {}".format(episode))

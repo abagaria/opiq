@@ -150,7 +150,7 @@ class OPIQAgent:
         return episode_reward, episode_length, max_reward_so_far
 
     def intrinsic_reward_function(self, states):
-        """ Given a batch of states, return the corresponding intrinsic rewards. """
+        """ Given a batch of *unnormalized* frames, return the corresponding intrinsic rewards. """
         
         def pre_process(x):
             """ Convert to float and divide each pixel by 255. """
@@ -169,12 +169,12 @@ class OPIQAgent:
         return counts2bonus(state_counts)
 
     def value_function(self, states):
-        def pre_process(x):
-            x = torch.as_tensor(x).float() * self.replay_buffer.obs_scaling
-            return x.to(self.device)
+        """ Given a batch of *normalized* (divided by 255) frame-stacked states, return their values. """
+        assert isinstance(states, torch.Tensor), type(states)
+        assert states.max() < 1.1, "states must be normalized"
 
         with torch.no_grad():
-            q_values = self.agent(pre_process(states))
+            q_values = self.agent(states)
 
         values = q_values.max(dim=1).values
         assert values.shape == (states.shape[0],), values.shape
