@@ -37,6 +37,11 @@ class MontezumeState:
 
         self.position = self.get_position(ram)
 
+    def __str__(self):
+        return "x: {}, y: {}, dir: {}, lives: {}, jumping: {}, falling: {}, hasKey: {}, \
+            skullPos: {}, skullDir: {}, skullPresent: {}, leftDoorLocked: {}, rightDoorLocked: {} \
+            isDead: {}".format(*tuple(self.ram_features))
+
     def features(self):
         return self.frame
 
@@ -66,17 +71,17 @@ class MontezumeState:
         return int(self.getByte(ram, 'ba'))
 
     def get_has_key(self, ram):
-        return int(self.getByte(ram, 'c1')) != 0
+        return int(int(self.getByte(ram, 'c1')) != 0)
 
     def get_is_jumping(self, ram):
         return 1 if self.getByte(ram, 'd6') != 0xFF else 0
 
     def get_is_falling(self, ram):
-        return int(self.getByte(ram, 'd8')) != 0
+        return int(int(self.getByte(ram, 'd8')) != 0)
 
     def get_skull_position(self, ram):
         skull_x = int(self.getByte(ram, 'af')) + 33
-        return skull_x / 100.
+        return skull_x
 
     def get_is_skull_present(self, ram):
         objects = format(self.getByte(ram, 'c2'), '08b')[-4:]
@@ -103,9 +108,6 @@ class MontezumeState:
         # Return the byte at the specified emulator RAM location
         idx = MontezumeState._getIndex(address)
         return ram[idx]
-
-    def __str__(self):
-        return "RAM: {}".format(self.ram_features)
 
     def __repr__(self):
         return str(self)

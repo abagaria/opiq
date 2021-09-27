@@ -66,7 +66,7 @@ class MontezumaMDP:
         ram = self.get_current_ram()
         self.skull_pos = self.get_skull_pos(ram)
         skull_direction = self.get_skull_direction(self.skull_pos, self.skull_pos)
-        self.init_state = MontezumeState(obs, ram, skull_direction, False, False)
+        self.init_state = MontezumeState(obs, ram, skull_direction, is_dead=0, is_terminal=0)
         self.num_lives = self.init_state.get_num_lives(ram)
 
         # Set current state
