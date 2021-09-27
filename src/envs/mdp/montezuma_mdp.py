@@ -39,11 +39,15 @@ class MontezumaMDP:
         if self.render:
             self.env.render()
 
-        is_dead = self.get_num_lives(ram) < self.num_lives
+        is_dead = int(self.get_num_lives(ram) < self.num_lives)
         skull_direction = self.get_skull_direction(current_skull_pos=self.get_skull_pos(ram),
                                                    previous_skull_pos=self.skull_pos)
 
-        self.next_state = MontezumeState(next_obs, ram, is_dead, skull_direction, done)
+        self.next_state = MontezumeState(frame=next_obs,
+                                         ram=ram,
+                                         skull_direction=skull_direction,
+                                         is_dead=is_dead,
+                                         is_terminal=done)
 
         return reward, done, info
 
@@ -66,7 +70,11 @@ class MontezumaMDP:
         ram = self.get_current_ram()
         self.skull_pos = self.get_skull_pos(ram)
         skull_direction = self.get_skull_direction(self.skull_pos, self.skull_pos)
-        self.init_state = MontezumeState(obs, ram, skull_direction, is_dead=0, is_terminal=0)
+        self.init_state = MontezumeState(frame=obs,
+                                         ram=ram,
+                                         skull_direction=skull_direction,
+                                         is_dead=0,
+                                         is_terminal=0)
         self.num_lives = self.init_state.get_num_lives(ram)
 
         # Set current state
