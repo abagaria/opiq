@@ -11,13 +11,13 @@ import argparse
 import numpy as np
 import utils.plotting
 
-from collections import deque
 from agent.atari_dqn import DQN
 from buffer.buffer import ReplayBuffer
 from envs.env_wrapper import EnvWrapper
 from trainer.dqn_train import DQNTrainer
 from count.atari_count import AtariCount
 from action.optimistic_action import OptimisticAction
+from envs.mdp.montezuma_mdp import MontezumaMDP
 from utils.dict2namedtuple import convert
 from utils.logging import get_stats, configure_stats_logging, create_log_dir
 
@@ -61,9 +61,7 @@ class OPIQAgent:
         
         self.T = 0 
     
-    def rollout(self, env, state, max_reward_so_far):
-        assert isinstance(env, gym.Env), env
-        assert isinstance(state, np.ndarray), state
+    def rollout(self, mdp, state, max_reward_so_far):
 
         terminated = False
         episode_reward = 0.
@@ -73,7 +71,7 @@ class OPIQAgent:
         while not terminated: 
 
             # Store observation (a single frame) into replay buffer
-            buffer_idx = self.replay_buffer.store_frame(state, pos=env.wrapped_env.get_player_xy())
+            buffer_idx = self.replay_buffer.store_frame(state.frame, pos=mdp.cur_state.position)
             stacked_states = self.replay_buffer.encode_recent_observation()
             
             # Action selection
@@ -88,7 +86,7 @@ class OPIQAgent:
                                                                     })
             
             # Execute agent action
-            next_state, reward, terminated, info = env.step(action)   
+            next_state, reward, terminated, info = mdp.execute_agent_action(action)
             
             # Logging
             self.T += 1
@@ -121,7 +119,7 @@ class OPIQAgent:
 
             if terminated:
                 if "Steps_Termination" in info and info["Steps_Termination"]:
-                    buffer_idx = self.replay_buffer.store_frame(state, env.wrapped_env.get_player_xy())
+                    buffer_idx = self.replay_buffer.store_frame(state.frame, state.position)
                     self.replay_buffer.store_effect(buffer_idx, 0, 0, 0, True, 0, dont_sample=True)
 
                 max_reward_so_far = max(max_reward_so_far, episode_reward)
@@ -212,6 +210,8 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     environment.seed(args.seed)
 
+    monte_mdp = MontezumaMDP(environment, render=False)
+
     opiq_agent = OPIQAgent(obs_dtype=getattr(environment.wrapped_env, "obs_dtype", np.float32),
                            obs_scaling=getattr(environment.wrapped_env, "obs_scaling", 1),
                            config=config,
@@ -229,8 +229,11 @@ if __name__ == "__main__":
     _log_max_rewards = []
 
     while current_step_number < num_training_steps:
-        s0 = environment.reset()
-        episodic_reward, episodic_duration, max_episodic_reward = opiq_agent.rollout(environment, s0, max_episodic_reward)
+        monte_mdp.reset()
+
+        episodic_reward, episodic_duration, max_episodic_reward = opiq_agent.rollout(monte_mdp,
+                                                                                     monte_mdp.cur_state,
+                                                                                     max_episodic_reward)
 
         current_episode_number += 1
         current_step_number += episodic_duration
